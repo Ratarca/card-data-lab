@@ -1,0 +1,52 @@
+[project]
+name = "card-data-lab"
+version = "0.1.0"
+description = "Credit card data lab: FastAPI modular monolith + PostgreSQL OLTP + DuckDB/dbt analytics"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn>=0.34",
+    "pydantic>=2.9",
+    "sqlalchemy>=2.0",
+    "psycopg2-binary>=2.9",
+    "pandas>=2.2",
+    "duckdb>=1.1",
+]
+
+[dependency-groups]
+dev = [
+    "dbt-duckdb>=1.11.0",
+    "httpx>=0.28.1",
+    "pytest>=8.3",
+    "scikit-learn>=1.9.0",
+    "streamlit>=1.62.0",
+    "taskipy>=1.13",
+]
+
+[tool.taskipy.tasks]
+infra = "docker compose up -d"
+infra-down = "docker compose down"
+migrate = "python -m oltp.run_migrations"
+api = "uvicorn services.main:app --reload"
+simulate = "python -m simulator.run"
+lake = "python -m worker.outbox_to_duckdb"
+dbt-build = "cd warehouse && dbt build --profiles-dir ."
+dbt-test = "cd warehouse && dbt test --profiles-dir ."
+dashboard = "streamlit run dashboard/app.py"
+ml-train = "python -m ml.train_models"
+test = "pytest -q"
+test-unit = "pytest -q -m unit"
+test-db = "pytest -q tests/test_database.py"
+test-fast = "pytest -q tests/test_schemas.py tests/test_database.py tests/test_service.py"
+test-all-ordered = "pytest -q tests/test_schemas.py tests/test_database.py tests/test_service.py tests/test_simulator.py tests/test_lake.py"
+check = "task test-fast && task migrate"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# Default collection order: cheap first, data-generation last.
+addopts = ""
+markers = [
+    "unit: fast tests, no external dependencies",
+    "db: requires a reachable PostgreSQL",
+    "slow: generates large volumes of data",
+]

@@ -1,0 +1,7 @@
+cardlab:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      path: ../lake/events.duckdb
+      threads: 4

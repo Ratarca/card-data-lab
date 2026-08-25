@@ -1,0 +1,48 @@
+version: 2
+
+models:
+  - name: fct_purchases
+    description: "Grain: 1 row = 1 purchase attempt (approved or declined)"
+    columns:
+      - name: event_id
+        description: Primary key — the purchase event id
+        tests: [unique, not_null]
+      - name: client_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_client')
+              field: client_id
+      - name: status
+        tests:
+          - accepted_values:
+              values: ['approved', 'declined']
+      - name: amount
+        tests: [not_null]
+
+  - name: fct_authorizations
+    description: "Grain: 1 row = 1 approved authorization"
+    columns:
+      - name: event_id
+        description: Primary key — the authorized purchase event id
+        tests: [unique, not_null]
+      - name: client_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_client')
+              field: client_id
+
+  - name: dim_date
+    description: Calendar dimension, one row per day present in the lake
+    columns:
+      - name: date_key
+        tests: [unique, not_null]
+
+  - name: dim_client
+    description: "SCD2 client dimension. Grain: 1 row per client version; validity ranges must never overlap and exactly one current row per client."
+    columns:
+      - name: client_id
+        tests: [not_null]
+      - name: valid_from
+        tests: [not_null]

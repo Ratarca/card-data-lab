@@ -1,0 +1,25 @@
+version: 2
+
+sources:
+  - name: lake
+    description: Raw event streams appended by the outbox worker (Stage 3)
+    schema: main
+    tables:
+      - name: raw_events
+        description: Append-only raw events from the OLTP event_outbox, deduped by event_id
+        loaded_at_field: ts_event
+        columns:
+          - name: event_id
+            description: Unique event identifier (idempotency key)
+            tests:
+              - unique
+              - not_null
+          - name: event_type
+            tests:
+              - not_null
+          - name: ts_event
+            tests:
+              - not_null
+          - name: payload
+            tests:
+              - not_null

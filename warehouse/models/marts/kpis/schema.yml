@@ -1,0 +1,51 @@
+version: 2
+
+models:
+  - name: kpi_approval_rate
+    description: >
+      KPI 1 — Approval rate. approved_attempts / total_attempts,
+      per day × segment. Non-additive ratio: re-aggregate from counts.
+    columns:
+      - name: approval_rate
+        tests:
+          - not_null
+          - dbt_utils_accepts_range:
+              min: 0
+              max: 1
+
+  - name: kpi_tpv
+    description: >
+      KPI 2 — TPV. Σ amount of approved purchases, per day × channel.
+      Fully additive measure.
+    columns:
+      - name: tpv
+        tests:
+          - not_null
+
+  - name: kpi_delinquency_rate
+    description: >
+      KPI 3 — Delinquency rate proxy. limit_exceeded declines / total declines,
+      per day × decline_reason. Replaced by invoice-based metric when payment
+      events land in the lake.
+    columns:
+      - name: delinquency_rate_proxy
+        tests:
+          - not_null
+
+  - name: kpi_limit_utilization
+    description: >
+      KPI 4 — Limit utilization proxy. daily spend vs income-based capacity
+      (30% of monthly income), per day × segment. Values > 1 signal stress.
+    columns:
+      - name: limit_utilization
+        tests:
+          - not_null
+
+  - name: kpi_activation_rate
+    description: >
+      KPI 5 — Activation rate proxy. Clients with an approved purchase within
+      7 days of onboarding / onboarded clients, per cohort day × segment.
+    columns:
+      - name: activation_rate
+        tests:
+          - not_null
