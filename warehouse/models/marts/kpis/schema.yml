@@ -34,8 +34,9 @@ models:
 
   - name: kpi_limit_utilization
     description: >
-      KPI 4 — Limit utilization proxy. daily spend vs income-based capacity
-      (30% of monthly income), per day × segment. Values > 1 signal stress.
+      KPI 4 — Monthly limit-stock proxy per day × segment. Capacity is 30% of
+      monthly income until limit-assigned events are available; used and
+      available balances are cumulative within each calendar month.
     columns:
       - name: limit_utilization
         tests:
