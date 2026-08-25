@@ -1,0 +1,13 @@
+name: cardlab
+version: "1.0.0"
+profile: cardlab
+
+model-paths: ["models"]
+target-path: "target"
+clean-targets: ["target", "dbt_packages"]
+
+models:
+  cardlab:
+    staging:
+      +materialized: view
+      +schema: staging

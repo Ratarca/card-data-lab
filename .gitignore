@@ -1,0 +1,63 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+*.venv/
+.venv/
+venv/
+
+# uv
+# uv.lock SHOULD be committed (reproducible env) — do not ignore it
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Testing / coverage
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+.tox/
+
+# Type checkers / linters caches
+.mypy_cache/
+.ruff_cache/
+
+# dbt
+warehouse/target/
+warehouse/dbt_packages/
+warehouse/logs/
+warehouse/.user.yml
+
+# DuckDB lake files (generated data, not source)
+*.duckdb
+*.duckdb.wal
+data/
+lake/
+
+# Airflow
+airflow/logs/
+airflow/*.db
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Simulated datasets (large generated outputs)
+simulator/output/
+
+# IDE
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db

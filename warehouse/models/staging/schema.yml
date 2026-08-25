@@ -1,0 +1,31 @@
+version: 2
+
+models:
+  - name: stg_onboarding_events
+    description: Typed/renamed onboarding events (one row per client onboarded)
+    columns:
+      - name: event_id
+        tests: [unique, not_null]
+      - name: client_id
+        tests:
+          - unique
+          - not_null
+      - name: segment
+        tests: [not_null]
+      - name: age
+        tests: [not_null]
+
+  - name: stg_purchase_events
+    description: Typed/renamed purchase events (one row per purchase attempt)
+    columns:
+      - name: event_id
+        tests: [unique, not_null]
+      - name: client_id
+        tests: [not_null]
+      - name: status
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['approved', 'declined']
+      - name: amount
+        tests: [not_null]
