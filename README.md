@@ -162,7 +162,7 @@ sequenceDiagram
         Service->>Outbox: purchase.declined
         Service-->>API: declined + reason
     end
-    Note over PG,Outbox: One transaction; a failed outbox write rolls back business state.
+    Note right of Outbox: Business rows and the outbox event commit atomically
 ```
 
 ### Runtime layers and code structure
