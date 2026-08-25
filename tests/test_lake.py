@@ -40,7 +40,7 @@ def test_worker_appends_events(clean_outbox, tmp_lake):
 
     con = duckdb.connect(str(tmp_lake))
     try:
-        count = con.execute("SELECT count(*) FROM raw_events").fetchone()[0]
+        count = con.execute("SELECT count(*) FROM bronze.raw_events").fetchone()[0]
     finally:
         con.close()
     assert count == result["appended"]
@@ -68,7 +68,7 @@ def test_worker_idempotent_no_duplicates(clean_outbox, tmp_lake):
 
     con = duckdb.connect(str(tmp_lake))
     try:
-        after_first = con.execute("SELECT count(*) FROM raw_events").fetchone()[0]
+        after_first = con.execute("SELECT count(*) FROM bronze.raw_events").fetchone()[0]
     finally:
         con.close()
 
@@ -76,7 +76,7 @@ def test_worker_idempotent_no_duplicates(clean_outbox, tmp_lake):
 
     con = duckdb.connect(str(tmp_lake))
     try:
-        after_second = con.execute("SELECT count(*) FROM raw_events").fetchone()[0]
+        after_second = con.execute("SELECT count(*) FROM bronze.raw_events").fetchone()[0]
     finally:
         con.close()
 
@@ -89,9 +89,9 @@ def test_reconciliation_outbox_vs_lake(clean_outbox, tmp_lake):
     """Published outbox rows == lake rows (Gate G3 reconciliation), scoped to this test."""
     from worker.outbox_to_duckdb import reconcile
 
-    before = reconcile()
+    before = reconcile(lake_path=tmp_lake)
     run_worker(lake_path=tmp_lake)
-    report = reconcile()
+    report = reconcile(lake_path=tmp_lake)
     delta_published = report["published_in_outbox"] - before["published_in_outbox"]
     delta_lake = report["in_lake"] - before["in_lake"]
     assert delta_published == delta_lake, f"delta mismatch: outbox +{delta_published} vs lake +{delta_lake}"

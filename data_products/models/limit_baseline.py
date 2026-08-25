@@ -41,7 +41,7 @@ def load_features() -> pd.DataFrame:
                  * (1 + coalesce(s.payment_ratio, 1.0) - 1)
                  * least(coalesce(s.avg_ticket, 0) / nullif(c.income * 0.05, 0), 2.0)
                 )::float as target_limit
-            from main.dim_client c
+            from silver.dim_client c
             left join (
                 select
                     client_id,
@@ -50,7 +50,7 @@ def load_features() -> pd.DataFrame:
                     count(*) * 1.0 / greatest(date_diff('day',
                         min(dt_event), max(dt_event) + interval 1 day), 1) as spend_velocity,
                     1.0                                               as payment_ratio
-                from main.fct_purchases
+                from silver.fct_purchases
                 where status = 'approved'
                 group by 1
             ) s using (client_id)
