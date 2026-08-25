@@ -1,0 +1,16 @@
+version: 2
+
+models:
+  - name: obt_client_360
+    description: >
+      Gold one-big-table at one row per current client. Combines current client
+      attributes with purchase behavior for portfolio exploration and ML features.
+    columns:
+      - name: client_id
+        tests: [unique, not_null]
+      - name: segment
+        tests: [not_null]
+      - name: authorization_attempts
+        tests: [not_null]
+      - name: lifetime_tpv
+        tests: [not_null]

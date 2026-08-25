@@ -1,6 +1,8 @@
 """Stage 2B gate tests: simulator volume and parameterization."""
 from __future__ import annotations
 
+from datetime import date, timedelta
+
 import pytest
 
 from simulator.run import simulate
@@ -20,6 +22,33 @@ def test_simulator_volume_gate(db_conn):
         cur.execute("SELECT count(DISTINCT aggregate_id) FROM event_outbox WHERE event_type LIKE 'purchase.%'")
         distinct_cards = cur.fetchone()[0]
     assert distinct_cards >= 100
+
+
+@requires_db
+def test_simulator_generates_historical_dates(clean_outbox):
+    """A six-month window must yield event dates throughout the requested history."""
+    start_date = date(2026, 1, 1)
+    end_date = date(2026, 6, 30)
+    stats = simulate(
+        n_clients=10,
+        months=6,
+        start_date=start_date,
+        end_date=end_date,
+        fraud_rate=0.0,
+        decline_rate=0.0,
+        seed=11,
+    )
+
+    with clean_outbox.cursor() as cur:
+        cur.execute("SELECT min(dt_event), max(dt_event) FROM event_outbox")
+        first_event, last_event = cur.fetchone()
+
+    assert stats["start_date"] == "2026-01-01"
+    assert stats["end_date"] == "2026-06-30"
+    assert stats["days"] == 181
+    assert start_date <= first_event <= start_date + timedelta(days=14)
+    assert last_event > date(2026, 5, 1)
+    assert last_event <= end_date
 
 
 @requires_db

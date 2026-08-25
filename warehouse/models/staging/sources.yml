@@ -3,7 +3,7 @@ version: 2
 sources:
   - name: lake
     description: Raw event streams appended by the outbox worker (Stage 3)
-    schema: main
+    schema: bronze
     tables:
       - name: raw_events
         description: Append-only raw events from the OLTP event_outbox, deduped by event_id

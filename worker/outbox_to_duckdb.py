@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import os
+from argparse import ArgumentParser
 from pathlib import Path
 
 import duckdb
@@ -18,6 +19,36 @@ import pandas as pd
 from oltp.run_migrations import get_connection
 
 LAKE_PATH = Path(os.getenv("LAKE_PATH", "lake/events.duckdb"))
+
+
+def _ensure_raw_events(con: duckdb.DuckDBPyConnection) -> None:
+    con.execute("CREATE SCHEMA IF NOT EXISTS bronze")
+    con.execute(
+        """
+        CREATE TABLE IF NOT EXISTS bronze.raw_events (
+            event_id VARCHAR PRIMARY KEY,
+            event_type VARCHAR,
+            ts_event TIMESTAMP,
+            dt_event DATE,
+            aggregate_id VARCHAR,
+            schema_version INTEGER,
+            header JSON,
+            payload JSON
+        )
+        """
+    )
+
+
+def initialize_lake(lake_path: Path | None = None) -> Path:
+    """Create the bronze raw-event contract before the first outbox export."""
+    lake_path = lake_path or LAKE_PATH
+    lake_path.parent.mkdir(parents=True, exist_ok=True)
+    con = duckdb.connect(str(lake_path))
+    try:
+        _ensure_raw_events(con)
+    finally:
+        con.close()
+    return lake_path
 
 
 def _fetch_unpublished(conn, batch_size: int = 5000) -> list[dict]:
@@ -55,60 +86,43 @@ def _rows_to_dataframe(rows: list[dict]) -> pd.DataFrame:
     )
 
 
-def run_worker(lake_path: Path | None = None) -> dict:
+def run_worker(lake_path: Path | None = None, batch_size: int = 5000) -> dict:
     """One worker pass. Returns summary counts."""
     lake_path = lake_path or LAKE_PATH
-    lake_path.parent.mkdir(parents=True, exist_ok=True)
+    initialize_lake(lake_path)
 
     pg = get_connection()
     try:
-        rows = _fetch_unpublished(pg)
+        rows = _fetch_unpublished(pg, batch_size=batch_size)
         if not rows:
             return {"fetched": 0, "appended": 0}
 
         df = _rows_to_dataframe(rows)
         con = duckdb.connect(str(lake_path))
         try:
-            con.execute(
-                """
-                CREATE TABLE IF NOT EXISTS raw_events (
-                    event_id VARCHAR PRIMARY KEY,
-                    event_type VARCHAR,
-                    ts_event TIMESTAMP,
-                    dt_event DATE,
-                    aggregate_id VARCHAR,
-                    schema_version INTEGER,
-                    header JSON,
-                    payload JSON
-                )
-                """
-            )
+            _ensure_raw_events(con)
             # Idempotency: anti-join against existing event_ids before append.
-            existing = con.execute("SELECT event_id FROM raw_events").df()
+            existing = con.execute("SELECT event_id FROM bronze.raw_events").df()
             if not existing.empty:
                 df = df[~df["event_id"].isin(existing["event_id"])]
 
             appended = len(df)
             if appended:
-                con.execute("INSERT INTO raw_events SELECT * FROM df")
+                con.execute("INSERT INTO bronze.raw_events SELECT * FROM df")
         finally:
             con.close()
 
-        # Mark published only for rows actually appended.
-        appended_ids = {r["event_id"] for r in rows} if appended == len(rows) else None
+        # Fetched duplicates already exist in the idempotent lake, so every
+        # fetched row is safe to mark as published after the lake transaction.
+        fetched_ids = {r["event_id"] for r in rows}
         with pg.cursor() as cur:
-            if appended_ids is None:
-                cur.execute(
-                    "UPDATE event_outbox SET published_at = now() WHERE published_at IS NULL"
-                )
-            else:
-                cur.execute(
-                    """
-                    UPDATE event_outbox SET published_at = now()
-                    WHERE published_at IS NULL AND event_id = ANY(%s::uuid[])
-                    """,
-                    ([str(i) for i in appended_ids],),
-                )
+            cur.execute(
+                """
+                UPDATE event_outbox SET published_at = now()
+                WHERE published_at IS NULL AND event_id = ANY(%s::uuid[])
+                """,
+                ([str(i) for i in fetched_ids],),
+            )
         pg.commit()
 
         return {"fetched": len(rows), "appended": appended}
@@ -116,8 +130,21 @@ def run_worker(lake_path: Path | None = None) -> dict:
         pg.close()
 
 
-def reconcile() -> dict:
+def run_until_empty(lake_path: Path | None = None, batch_size: int = 5000) -> dict:
+    """Drain all unpublished outbox rows through bounded worker passes."""
+    total = {"fetched": 0, "appended": 0, "batches": 0}
+    while True:
+        result = run_worker(lake_path=lake_path, batch_size=batch_size)
+        if result["fetched"] == 0:
+            return total
+        total["fetched"] += result["fetched"]
+        total["appended"] += result["appended"]
+        total["batches"] += 1
+
+
+def reconcile(lake_path: Path | None = None) -> dict:
     """Compare outbox vs lake row counts (Gate G3 criterion)."""
+    lake_path = lake_path or LAKE_PATH
     pg = get_connection()
     try:
         with pg.cursor() as cur:
@@ -126,13 +153,35 @@ def reconcile() -> dict:
     finally:
         pg.close()
 
-    con = duckdb.connect(str(LAKE_PATH))
+    con = duckdb.connect(str(lake_path))
     try:
-        in_lake = con.execute("SELECT count(*) FROM raw_events").fetchone()[0]
+        table_exists = con.execute(
+            """
+            SELECT 1
+            FROM information_schema.tables
+            WHERE table_schema = 'bronze' AND table_name = 'raw_events'
+            """
+        ).fetchone()
+        in_lake = (
+            con.execute("SELECT count(*) FROM bronze.raw_events").fetchone()[0]
+            if table_exists
+            else 0
+        )
     finally:
         con.close()
     return {"published_in_outbox": published, "in_lake": in_lake, "reconciled": published == in_lake}
 
 
 if __name__ == "__main__":
-    print(run_worker())
+    parser = ArgumentParser(description="Initialize or export the DuckDB event lake.")
+    action = parser.add_mutually_exclusive_group()
+    action.add_argument("--init", action="store_true", help="create bronze.raw_events only")
+    action.add_argument("--until-empty", action="store_true", help="drain all unpublished outbox batches")
+    args = parser.parse_args()
+
+    if args.init:
+        print({"lake_path": str(initialize_lake()), "initialized": True})
+    elif args.until_empty:
+        print(run_until_empty())
+    else:
+        print(run_worker())

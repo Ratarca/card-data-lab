@@ -57,8 +57,8 @@ def load_features() -> pd.DataFrame:
             case when count(*) > 0 then
                 sum(case when p.status = 'declined' then 1 else 0 end) * 1.0 / count(*)
             else 0 end                                          as decline_ratio
-        from main.dim_client c
-        left join main.fct_purchases p using (client_id)
+        from silver.dim_client c
+        left join silver.fct_purchases p using (client_id)
         group by 1, 2, 3, 4
         """
     ).df()
