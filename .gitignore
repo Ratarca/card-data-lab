@@ -61,3 +61,9 @@ simulator/output/
 # OS
 .DS_Store
 Thumbs.db
+
+# AGENTS
+.claude
+.codex
+.github
+.opencode
