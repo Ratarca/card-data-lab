@@ -75,6 +75,22 @@ DuckDB permits one writer. Run `simulate` → `lake-backfill` → `dbt-build` se
 
 ### Visualize local infrastructure
 
+#### FastAPI: interactive API documentation
+
+Start the API, then open the auto-generated documentation in a browser:
+
+```bash
+uv run uvicorn services.main:app --reload --port 8000
+```
+
+| Documentation | URL | What it offers |
+|---|---|---|
+| Swagger UI | [http://localhost:8000/docs](http://localhost:8000/docs) | Interactive explorer: inspect request/response schemas and call endpoints directly from the browser. |
+| ReDoc | [http://localhost:8000/redoc](http://localhost:8000/redoc) | Read-only reference view, better for reviewing the full contract. |
+| OpenAPI schema | [http://localhost:8000/openapi.json](http://localhost:8000/openapi.json) | Machine-readable OpenAPI 3.1 spec for codegen, Postman imports, or contract tests. |
+
+Both UIs are generated from the Pydantic models in `core/` and `services/modules/`, so they stay in sync with the code automatically. Endpoints currently documented: `GET /health` and `POST /api/purchases/authorize`.
+
 #### Portainer: containers, health, and logs
 
 Start the infrastructure, then open [https://localhost:9443](https://localhost:9443). On first use, Portainer asks for a local administrator account and an environment; select the local Docker environment. A browser may warn about the local development certificate.
